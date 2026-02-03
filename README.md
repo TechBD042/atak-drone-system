@@ -85,15 +85,21 @@ Setting up the central coordination server.
 - User authentication configured
 - Certificate generation scripts ready
 
-### Phase 3: ATAK Client Setup 🔄 IN PROGRESS
+### Phase 3: ATAK Client Setup ✅ COMPLETE
 Installing and configuring the Android app.
-- [ ] Install ATAK on Android device
-- [ ] Install Tailscale on Android device
-- [ ] Import data package (.zip with certs)
-- [ ] Connect to TAK Server
-- [ ] Verify map and position sharing
+- [x] Install ATAK on Android device (Samsung Galaxy S22)
+- [x] Install Tailscale on Android device
+- [x] Import client certificate AND CA truststore (both required!)
+- [x] Connect to TAK Server
+- [x] Verify map and position sharing
 
-### Phase 4: Drone Integration ⏳ UPCOMING
+**Connected Device:** Samsung Galaxy S22 | Callsign: BALKY
+
+**Key Lesson Learned:** ATAK requires TWO certificates to connect:
+1. Client Certificate (`.p12`) - proves who you are
+2. CA Truststore (`truststore-root.p12`) - tells ATAK to trust the server
+
+### Phase 4: Drone Integration 🔄 IN PROGRESS
 Connecting drones to the system for video and control.
 - [ ] Configure drone video feed to MediaMTX
 - [ ] Set up ATAK UAS (drone) plugin
@@ -154,18 +160,49 @@ cd ~/tak-server
 
 This generates a data package at `~/tak-server/data-packages/<username>-TAK-Connection.zip`
 
-Send this file to the team member along with:
-- Certificate password: `atakatak`
-- Instructions to install Tailscale and join the network
+**IMPORTANT:** After creating a certificate, you MUST authorize it on the server:
+
+```bash
+# Authorize the certificate (required for connection!)
+docker exec takserver java -jar /opt/tak/utils/UserManager.jar certmod /opt/tak/certs/files/<username>.pem
+
+# For admin users, add -A flag:
+docker exec takserver java -jar /opt/tak/utils/UserManager.jar certmod -A /opt/tak/certs/files/<username>.pem
+```
+
+Send these files to the team member:
+1. `<username>.p12` - Client certificate
+2. `truststore-root.p12` - CA truststore (located at `~/tak-server/takserver-docker-5.6-RELEASE-6/tak/certs/files/`)
+3. Certificate password: `atakatak`
+4. Instructions to install Tailscale and join the network
 
 ### Manual Certificate Creation
 
 ```bash
-# Generate certificate inside container
+# 1. Generate certificate inside container
 docker exec takserver bash -c "cd /opt/tak/certs && STATE=California CITY=Oakland ORGANIZATIONAL_UNIT=CCC ./makeCert.sh client <username>"
+
+# 2. Authorize the certificate on the server
+docker exec takserver java -jar /opt/tak/utils/UserManager.jar certmod /opt/tak/certs/files/<username>.pem
 
 # Files created in: ~/tak-server/takserver-docker-5.6-RELEASE-6/tak/certs/files/
 ```
+
+### ATAK Client Setup (Two Certificates Required!)
+
+When setting up ATAK on a new device:
+
+1. **Install Tailscale** and connect to the network
+2. **In ATAK:** Settings → Network Preferences → TAK Servers → Add
+3. **Server settings:**
+   - Address: `100.77.122.114`
+   - Port: `8089`
+   - Protocol: `SSL`
+4. **Advanced Options:**
+   - Uncheck "Use default SSL/TLS certificates"
+   - Import CA certificate: `truststore-root.p12` (password: `atakatak`)
+   - Import client certificate: `<username>.p12` (password: `atakatak`)
+5. **Save** and verify connection (should show green)
 
 ## Creating Web Login Users
 
